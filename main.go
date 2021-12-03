@@ -1,6 +1,9 @@
 package main
 
-import "bytes"
+import (
+	"bytes"
+	"regexp"
+)
 
 func normalize(phone string) string {
 	var buf bytes.Buffer
@@ -11,6 +14,11 @@ func normalize(phone string) string {
 	}
 
 	return buf.String()
+}
+
+func normalizeRegex(phone string) string {
+	re := regexp.MustCompile(`\D`)
+	return re.ReplaceAllString(phone, "")
 }
 
 func main() {
