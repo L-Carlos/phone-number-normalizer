@@ -1,7 +1,7 @@
 package main
 
 func normalize(phone string) string {
-	return ""
+	return phone
 }
 
 func main() {
