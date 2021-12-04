@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"regexp"
-	"strings"
 
 	_ "github.com/lib/pq"
 )
@@ -24,23 +23,30 @@ func main() {
 		host, port, user, pasword, dbname)
 
 	db, err := sql.Open("postgres", psqlInfo)
-	checkErr(err)
+	must(err)
 	defer db.Close()
 
-	checkErr(createPhoneNumbersTable(db))
-
-	number, err := getPhone(db, 5)
-	checkErr(err)
-
-	fmt.Println("Number is...", number)
+	must(createPhoneNumbersTable(db))
 
 	phones, err := allPhones(db)
-	checkErr(err)
+	must(err)
 
-	fmt.Println("id\tnumber")
-	fmt.Println(strings.Repeat("-", 22))
 	for _, p := range phones {
-		fmt.Printf("%d\t%s\n", p.id, p.number)
+		fmt.Printf("Working on... %+v\n", p)
+		number := normalize(p.number)
+		if number != p.number {
+			fmt.Println("Updating or removing...", number)
+			existing, err := findPhone(db, number)
+			must(err)
+			if existing != nil {
+				must(deletePhone(db, p.id))
+			} else {
+				p.number = number
+				must(updatePhone(db, p))
+			}
+		} else {
+			fmt.Println("No changes required")
+		}
 	}
 
 }
@@ -82,6 +88,20 @@ func getPhone(db *sql.DB, id int) (string, error) {
 	return number, nil
 }
 
+func findPhone(db *sql.DB, number string) (*phone, error) {
+	var p phone
+	row := db.QueryRow("SELECT id, value FROM phone_numbers WHERE value=$1", number)
+	err := row.Scan(&p.id, &p.number)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		} else {
+			return nil, err
+		}
+	}
+	return &p, nil
+}
+
 func insertPhone(db *sql.DB, phone string) (int, error) {
 	var id int
 	statement := `INSERT INTO phone_numbers(value) VALUES($1) RETURNING id`
@@ -90,6 +110,17 @@ func insertPhone(db *sql.DB, phone string) (int, error) {
 		return -1, err
 	}
 	return id, nil
+}
+
+func updatePhone(db *sql.DB, p phone) error {
+	statement := `UPDATE phone_numbers SET value=$2 WHERE id=$1`
+	_, err := db.Exec(statement, p.id, p.number)
+	return err
+}
+
+func deletePhone(db *sql.DB, id int) error {
+	_, err := db.Exec("DELETE FROM phone_numbers WHERE id=$1", id)
+	return err
 }
 
 func createPhoneNumbersTable(db *sql.DB) error {
@@ -136,7 +167,7 @@ func normalizeRegex(phone string) string {
 	return re.ReplaceAllString(phone, "")
 }
 
-func checkErr(err error) {
+func must(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
