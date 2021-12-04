@@ -36,7 +36,19 @@ func main() {
 
 	defer db.Close()
 
-	checkErr(db.Ping())
+	checkErr(createPhoneNumbersTable(db))
+}
+
+func createPhoneNumbersTable(db *sql.DB) error {
+	statement := `
+	CREATE TABLE IF NOT EXISTS phone_numbers (
+		id SERIAL,
+		value VARCHAR(255)
+	)`
+
+	_, err := db.Exec(statement)
+	return err
+
 }
 
 func createDB(db *sql.DB, name string) error {
