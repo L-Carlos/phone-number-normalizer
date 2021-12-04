@@ -37,3 +37,19 @@ func TestNormalizeRegex(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkNormalize(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		for _, t := range normalizeTestCases {
+			normalize(t.input)
+		}
+	}
+}
+
+func BenchmarkNormalizeRegex(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		for _, t := range normalizeTestCases {
+			normalizeRegex(t.input)
+		}
+	}
+}
