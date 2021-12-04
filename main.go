@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strings"
 
 	_ "github.com/lib/pq"
 )
@@ -28,24 +29,57 @@ func main() {
 
 	checkErr(createPhoneNumbersTable(db))
 
-	phones := [...]string{
-		"1234567890",
-		"123 456 7891",
-		"(123) 456 7892",
-		"(123) 456-7893",
-		"123-456-7894",
-		"123-456-7890",
-		"1234567892",
-		"(123)456-7892",
+	number, err := getPhone(db, 5)
+	checkErr(err)
+
+	fmt.Println("Number is...", number)
+
+	phones, err := allPhones(db)
+	checkErr(err)
+
+	fmt.Println("id\tnumber")
+	fmt.Println(strings.Repeat("-", 22))
+	for _, p := range phones {
+		fmt.Printf("%d\t%s\n", p.id, p.number)
 	}
 
-	for _, phone := range phones {
-		id, err := insertPhone(db, phone)
-		checkErr(err)
-		fmt.Printf("id=%d\n", id)
+}
 
+type phone struct {
+	id     int
+	number string
+}
+
+func allPhones(db *sql.DB) ([]phone, error) {
+	rows, err := db.Query("SELECT id, value FROM phone_numbers")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var phones []phone
+	for rows.Next() {
+		var p phone
+		if err := rows.Scan(&p.id, &p.number); err != nil {
+			return nil, err
+		}
+		phones = append(phones, p)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return phones, nil
+}
+
+func getPhone(db *sql.DB, id int) (string, error) {
+	var number string
+	err := db.QueryRow("SELECT value FROM phone_numbers WHERE id=$1", id).Scan(&number)
+	if err != nil {
+		return "", err
+	}
+	return number, nil
 }
 
 func insertPhone(db *sql.DB, phone string) (int, error) {
