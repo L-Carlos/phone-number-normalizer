@@ -14,29 +14,48 @@ const (
 	host    = "localhost"
 	port    = 5432
 	user    = "postgres"
-	pasword = "password-here"
+	pasword = ""
 	dbname  = "phone_normalizer"
 )
 
 func main() {
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s sslmode=disable",
-		host, port, user, pasword)
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		host, port, user, pasword, dbname)
 
 	db, err := sql.Open("postgres", psqlInfo)
 	checkErr(err)
-
-	err = resetDB(db, dbname)
-	checkErr(err)
-
-	db.Close()
-
-	psqlInfo = fmt.Sprintf("%s dbname=%s", psqlInfo, dbname)
-	db, err = sql.Open("postgres", psqlInfo)
-	checkErr(err)
-
 	defer db.Close()
 
 	checkErr(createPhoneNumbersTable(db))
+
+	phones := [...]string{
+		"1234567890",
+		"123 456 7891",
+		"(123) 456 7892",
+		"(123) 456-7893",
+		"123-456-7894",
+		"123-456-7890",
+		"1234567892",
+		"(123)456-7892",
+	}
+
+	for _, phone := range phones {
+		id, err := insertPhone(db, phone)
+		checkErr(err)
+		fmt.Printf("id=%d\n", id)
+
+	}
+
+}
+
+func insertPhone(db *sql.DB, phone string) (int, error) {
+	var id int
+	statement := `INSERT INTO phone_numbers(value) VALUES($1) RETURNING id`
+	err := db.QueryRow(statement, phone).Scan(&id)
+	if err != nil {
+		return -1, err
+	}
+	return id, nil
 }
 
 func createPhoneNumbersTable(db *sql.DB) error {
